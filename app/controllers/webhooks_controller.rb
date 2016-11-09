@@ -14,8 +14,11 @@ class WebhooksController < ApplicationController
     end
 
     params[:entry].each do |entry|
+
       entry[:messaging].each do |messaging|
-        process_text_message(message_text: messaging[:message][:text], sender_id: messaging[:sender][:id])
+        sender_id = messaging[:sender][:id]
+        process_text_message(message_text: messaging[:message][:text], sender_id: sender_id) if messaging.has_key? :message
+        process_postback(payload: messaging[:postback][:payload], sender_id: sender_id) if messaging.has_key? :postback
       end
     end
 
@@ -23,8 +26,44 @@ class WebhooksController < ApplicationController
   end
 
   private
-    def process_text_message(message_text:, sender_id:)
+    def process_postback(payload:, sender_id:)
+      message = case payload
+        when 'GETTING_STARTED_BUTTON' then {
+            recipient: {
+              id: sender_id
+            },
+            message: create_getting_started_message.to_json
+          }
+        else nil
+      end
+      send_api_message message: message if message
+    end
 
+    def create_getting_started_message
+      {
+        attachment: {
+          type: "template",
+          payload: {
+            template_type: "generic",
+            elements: [
+              {
+                title: 'You give us a gem name, we give you info',
+                buttons:[
+                  {
+                    type: "web_url",
+                    url: Rails.application.routes.url_helpers.getting_started_buttons_url,
+                    title: "Give me some info",
+                    webview_height_ratio: "compact"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    end
+
+    def process_text_message(message_text:, sender_id:)
       gem_details = RubyGemsHelper.get_gem_details message_text
 
       message = {
