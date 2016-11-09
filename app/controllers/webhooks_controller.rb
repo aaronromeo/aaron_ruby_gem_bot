@@ -15,7 +15,7 @@ class WebhooksController < ApplicationController
 
     params[:entry].each do |entry|
       entry[:messaging].each do |messaging|
-        process_message(message_text: messaging[:message][:text], sender_id: messaging[:sender][:id])
+        process_text_message(message_text: messaging[:message][:text], sender_id: messaging[:sender][:id])
       end
     end
 
@@ -23,21 +23,26 @@ class WebhooksController < ApplicationController
   end
 
   private
-    def process_message(message_text:, sender_id:)
-      conn = Faraday.new(:url => 'https://graph.facebook.com') do |faraday|
-        faraday.request  :url_encoded             # form-encode POST params
-        faraday.response :logger                  # log requests to STDOUT
-        faraday.adapter  Faraday.default_adapter  # make requests with Net::HTTP
-      end
+    def process_text_message(message_text:, sender_id:)
+
+      gem_details = RubyGemsHelper.get_gem_details message_text
 
       message = {
         recipient: {
           id: sender_id
         },
-        message: {
-          text: message_text
-        }
+        message: gem_details
       }
+
+      send_api_message message: message
+    end
+
+    def send_api_message(message:)
+      conn = Faraday.new(:url => 'https://graph.facebook.com') do |faraday|
+        faraday.request  :url_encoded             # form-encode POST params
+        faraday.response :logger                  # log requests to STDOUT
+        faraday.adapter  Faraday.default_adapter  # make requests with Net::HTTP
+      end
 
       response = conn.post do |req|
         req.url '/v2.6/me/messages'
@@ -45,18 +50,5 @@ class WebhooksController < ApplicationController
         req.params[:access_token] = ENV['PAGE_ACCESS_TOKEN']
         req.body = message.to_json
       end
-      # uri: 'https://graph.facebook.com/v2.6/me/messages',
-      # qs: { access_token: PAGE_ACCESS_TOKEN },
-      # method: 'POST',
-      # json: messageData
-      Rails.logger.debug response.inspect
-
-      response
     end
-
-    # def permitted_post_params
-    #   # params.require(:webhook).permit(:object, :entry => [])
-    #   params.permit(:object, entry: [:id, ])
-    # end
-
 end
