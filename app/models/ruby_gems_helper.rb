@@ -6,7 +6,7 @@ class RubyGemsHelper
       faraday.adapter  Faraday.default_adapter  # make requests with Net::HTTP
     end
 
-    response = conn.get "/api/v1/gems/#{gem_name}.json"
+    response = conn.get "/api/v1/gems/#{gem_name.downcase}.json"
     return prep_response(JSON.parse(response.body).with_indifferent_access) if response.status == 200
 
     {text: "Gem '#{gem_name}' not found"}
